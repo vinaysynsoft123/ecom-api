@@ -8,6 +8,7 @@ const categoryRoutes = require("./category.routes");
 const addressRoutes = require("./address.routes");
 const orderRoutes = require("./order.routes");
 const paymentRoutes = require("./payment.routes");
+const dashboardRoutes = require("./dashboard.routes");
 
 router.use("/user", userRoutes);
 router.use("/auth", authRoutes);
@@ -16,6 +17,7 @@ router.use("/categories", categoryRoutes);
 router.use("/addresses", addressRoutes);
 router.use("/orders", orderRoutes);
 router.use("/payments", paymentRoutes);
+router.use("/dashboard", dashboardRoutes);
 
 router.get("/health", (req, res) => {
   res.json({ status: "API working" });

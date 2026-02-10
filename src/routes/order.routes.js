@@ -9,6 +9,7 @@ const {
     getOrderDetails,
     getAllOrdersAdmin,
     updateOrderStatus,
+    getAllOrders,
 } = require("../controllers/order.controller");
 
 // USER ORDER ROUTES (Require Auth)
@@ -16,6 +17,7 @@ router.post("/", auth, placeOrder);
 router.get("/my-orders", auth, getUserOrders);
 router.get("/:id", auth, getOrderDetails);
 router.put("/cancel/:id", auth, cancelOrder);
+router.get("/all-orders", auth, getAllOrders);
 
 // ADMIN ORDER ROUTES (Require Auth & Admin)
 router.get("/admin/all", auth, admin, getAllOrdersAdmin);

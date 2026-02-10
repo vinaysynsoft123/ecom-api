@@ -22,11 +22,11 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // PRODUCT ROUTES
-router.post("/", upload.array("images", 5), add_product);
+router.post("/", upload.single("image"), add_product);
 router.get("/", getProducts);
 router.get("/search", search_products);
 router.get("/:id", getProduct);
-router.put("/:id", upload.array("images", 5), update_product);
+router.put("/:id", upload.single("image"), update_product);
 router.delete("/:id", delete_product);
 
 module.exports = router;

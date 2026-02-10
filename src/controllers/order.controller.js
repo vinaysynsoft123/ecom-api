@@ -274,6 +274,25 @@ const updateOrderStatus = async (req, res) => {
     }
 };
 
+const getAllOrders = async (req, res) => {
+    try {
+        const [orders] = await db.query(
+            "SELECT o.*, u.name as user_name, u.email as user_email FROM orders o JOIN users u ON o.user_id = u.id ORDER BY o.id DESC"
+        );
+
+        res.status(200).json({
+            success: true,
+            data: orders,
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch orders",
+            error: error.message,
+        });
+    }
+};
+
 module.exports = {
     placeOrder,
     cancelOrder,
@@ -281,4 +300,5 @@ module.exports = {
     getOrderDetails,
     getAllOrdersAdmin,
     updateOrderStatus,
+    getAllOrders,
 };

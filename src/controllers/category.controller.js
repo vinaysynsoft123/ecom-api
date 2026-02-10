@@ -1,14 +1,24 @@
+const fs = require("fs");
+const path = require("path");
 const db = require("../config/db");
+
+// Helper to generate slug
+const generateSlug = (text) => {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "") // Remove special chars
+    .replace(/\s+/g, "-") // Replace spaces with -
+    .replace(/-+/g, "-") // Remove multiple -
+    .trim();
+};
 
 // ADD CATEGORY
 const add_category = async (req, res) => {
   try {
-    const { name, description, status } = req.body;
+    const { name, description, status, slug } = req.body;
     let images = "";
 
-    if (req.files && req.files.length > 0) {
-      images = req.files.map((file) => file.path).join(",");
-    } else if (req.file) {
+    if (req.file) {
       images = req.file.path;
     }
 
@@ -19,13 +29,17 @@ const add_category = async (req, res) => {
       });
     }
 
+    // Auto-generate slug if not provided
+    const categorySlug = slug || generateSlug(name);
+
     await db.query(
-      "INSERT INTO categories (name, description, status, images, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO categories (name, description, status, images, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [
         name,
         description || "",
-        status || "active",
+        status !== undefined && status !== null ? status : "1",
         images,
+        categorySlug,
         new Date(),
         new Date(),
       ],
@@ -89,7 +103,7 @@ const getCategory = async (req, res) => {
 const update_category = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, status } = req.body;
+    const { name, description, status, slug } = req.body;
 
     // Check if exists
     const [existing] = await db.query("SELECT * FROM categories WHERE id = ?", [id]);
@@ -101,19 +115,25 @@ const update_category = async (req, res) => {
     }
 
     let images = existing[0].images;
-    if (req.files && req.files.length > 0) {
-      images = req.files.map((file) => file.path).join(",");
-    } else if (req.file) {
+    if (req.file) {
+      // Delete old image if it exists
+      if (existing[0].images && fs.existsSync(existing[0].images)) {
+        fs.unlinkSync(existing[0].images);
+      }
       images = req.file.path;
     }
 
+    // Update slug if name changes or custom slug provided
+    const categorySlug = slug || (name ? generateSlug(name) : existing[0].slug);
+
     await db.query(
-      "UPDATE categories SET name = ?, description = ?, status = ?, images = ?, updated_at = ? WHERE id = ?",
+      "UPDATE categories SET name = ?, description = ?, status = ?, images = ?, slug = ?, updated_at = ? WHERE id = ?",
       [
         name || existing[0].name,
         description || existing[0].description,
-        status || existing[0].status,
+        status !== undefined && status !== null ? status : existing[0].status,
         images,
+        categorySlug,
         new Date(),
         id,
       ],
@@ -136,6 +156,10 @@ const update_category = async (req, res) => {
 const delete_category = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Get category info to delete file
+    const [existing] = await db.query("SELECT images FROM categories WHERE id = ?", [id]);
+
     const [result] = await db.query("DELETE FROM categories WHERE id = ?", [id]);
 
     if (result.affectedRows === 0) {
@@ -143,6 +167,11 @@ const delete_category = async (req, res) => {
         success: false,
         message: "Category not found",
       });
+    }
+
+    // Cleanup image file
+    if (existing.length > 0 && existing[0].images && fs.existsSync(existing[0].images)) {
+      fs.unlinkSync(existing[0].images);
     }
 
     return res.status(200).json({

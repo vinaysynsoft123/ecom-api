@@ -1,4 +1,6 @@
 const db = require("../config/db");
+const fs = require("fs");
+const path = require("path");
 
 // ADD PRODUCT
 const add_product = async (req, res) => {
@@ -6,10 +8,8 @@ const add_product = async (req, res) => {
     const { name, category_id, details, price, status } = req.body;
     let images = "";
 
-    // Handle multiple images if uploaded via multer
-    if (req.files) {
-      images = req.files.map((file) => file.path).join(",");
-    } else if (req.file) {
+    // Handle single image if uploaded via multer
+    if (req.file) {
       images = req.file.path;
     }
 
@@ -106,10 +106,12 @@ const update_product = async (req, res) => {
     }
 
     let images = existing[0].images;
-    // Update images if new files are uploaded
-    if (req.files && req.files.length > 0) {
-      images = req.files.map((file) => file.path).join(",");
-    } else if (req.file) {
+    // Update image if a new file is uploaded
+    if (req.file) {
+      // Delete old image from filesystem
+      if (existing[0].images && fs.existsSync(existing[0].images)) {
+        fs.unlinkSync(existing[0].images);
+      }
       images = req.file.path;
     }
 
@@ -144,20 +146,46 @@ const update_product = async (req, res) => {
 const delete_product = async (req, res) => {
   try {
     const { id } = req.params;
-    const [result] = await db.query("DELETE FROM products WHERE id = ?", [id]);
 
-    if (result.affectedRows === 0) {
+    // 1. Check if product exists
+    const [existing] = await db.query("SELECT * FROM products WHERE id = ?", [id]);
+    if (existing.length === 0) {
       return res.status(404).json({
         success: false,
         message: "Product not found",
       });
     }
 
+    // 2. Check for dependencies (Orders)
+    const [orders] = await db.query("SELECT COUNT(*) as count FROM order_items WHERE product_id = ?", [id]);
+    if (orders[0].count > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot delete product because it has associated orders. Please deactivate it instead.",
+        hasOrders: true
+      });
+    }
+
+    // 3. Perform deletion
+    if (existing[0].images && fs.existsSync(existing[0].images)) {
+      fs.unlinkSync(existing[0].images);
+    }
+
+    const [result] = await db.query("DELETE FROM products WHERE id = ?", [id]);
+
     return res.status(200).json({
       success: true,
       message: "Product deleted successfully",
     });
   } catch (error) {
+    // Handle database specific errors (like FK constraints if the check above misses something)
+    if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.errno === 1451) {
+      return res.status(400).json({
+        success: false,
+        message: "This product is linked to other records (like orders) and cannot be deleted. Try setting its status to Inactive instead.",
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Product deletion failed",

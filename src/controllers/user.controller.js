@@ -128,7 +128,57 @@ const updateProfile = async (req, res) => {
     }
 };
 
+const getAllUsers = async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            "SELECT id, name, email, mobile, role, status, created_at FROM users WHERE role = 'user' ORDER BY id DESC"
+        );
+
+
+        res.status(200).json({
+            success: true,
+            data: rows,
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Failed to retrieve users",
+            error: error.message,
+        });
+    }
+};
+
+const getUserById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [users] = await db.query(
+            "SELECT id, name, email, mobile, role, status, created_at FROM users WHERE id = ?",
+            [id]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: users[0],
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Failed to retrieve user details",
+            error: error.message,
+        });
+    }
+};
+
 module.exports = {
     getProfile,
     updateProfile,
+    getAllUsers,
+    getUserById,
 };
